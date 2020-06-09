@@ -117,7 +117,7 @@ public:
                                 //empty space
                                 points[i][j]+=enemyAround(tgtBoard, i, j, this->mytag, 1);
                                 int allypnt = allyAround(tgtBoard, i, j, this->mytag);
-                                std::cout<<"test ally:"<<allypnt<<std::endl;
+                                std::cout<<"test ally:"<<i<<j<<' '<<allypnt<<std::endl;
                                 points[i][j]+=allypnt;
                                 //update (retx, rety) if better
                                 if(points[i][j]>maxpnt || ((points[i][j]!=0&&points[i][j]==maxpnt)&&rand()%2)){
@@ -426,7 +426,7 @@ public:
         return totalpnt;
     }
     int allyAround(TA::Board tgtBoard, int x, int y, TA::BoardInterface::Tag t){
-        int ally=0;
+        //int ally=0;
         int totalpnt= 0;
         int allypnt = 2;
         int linkpnt = 12;
@@ -499,10 +499,16 @@ public:
                 else if(isAlly(tgtBoard,x-2,y,t) || isAlly(tgtBoard,x+2,y,t)) totalpnt += (allypnt+linkpnt);
                 else if(isNone(tgtBoard,x-2,y) || isNone(tgtBoard,x+2,y)) totalpnt += (allypnt+canlink);
                 else totalpnt += allypnt;
-            }  
+            }
 
+            if(isNone(tgtBoard,x-1,y) || isNone(tgtBoard,x+1,y)){
+                if(isAlly(tgtBoard,x-2,y,t) || isAlly(tgtBoard,x+2,y,t)) totalpnt += canlink;
+            }  
+            if(isNone(tgtBoard,x,y-1) || isNone(tgtBoard,x,y+1)){
+                if(isAlly(tgtBoard,x,y-2,t) || isAlly(tgtBoard,x,y+2,t)) totalpnt += canlink;
+            } 
         }
-        return ally;
+
         if(x == 1 && y == 1){
             if(isAlly(tgtBoard,x,y+1,t) || isAlly(tgtBoard,x, y-1,t)){
                 if(isAlly(tgtBoard,x,y-1,t) && isAlly(tgtBoard,x,y+1,t)) totalpnt += (2*allypnt+ linkpnt);
@@ -539,7 +545,6 @@ public:
     }
     /*bool canBlock(TA::Board tgtBoard, int x, int y){
         bool ans = false;
-
         return ans;
     }*/
     bool canConqure(TA::Board tgtBoard, int x, int y){
