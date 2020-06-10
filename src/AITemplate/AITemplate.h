@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <random>
 #include <ctime>
+#include <vector>
+#include <utility>
+#include <cmath>
 
 bool dbg = true;
 
@@ -40,6 +43,11 @@ private:
     int y;
     AI::Mode mode; 
     TA::BoardInterface::Tag mytag;
+
+    //for ultimate winning strategy
+    std::vector<std::pair<int,int>> waitLine;
+    int state;
+    int n;
     
 public:
     
@@ -48,27 +56,32 @@ public:
     {
         this->x = rand()%9;
         this->y = rand()%9;
-        if(order){
+        if (order){
             this->mytag = TA::BoardInterface::Tag::O;
-            this->mode = Mode::Standard;//should be Mode::Offense; !!!
+            this->mode = Mode::Offense;
+            this->x = 1;
+            this->y = 1;
+            state = -1;
+            n = 0;
         }
-        else{
+        else {
             this->mytag = TA::BoardInterface::Tag::X;
             this->mode = Mode::Standard;
         }
-        this->mode = Mode::Standard;
     }
 
     void callbackReportEnemy(int x, int y) override{
         this->x = x;
         this->y = y;
     }
+    
     std::pair<int,int> queryWhereToPut(TA::UltraBoard MainBoard) override{
         if(dbg)std::cout<<"last step:("<<this->x<<" "<<this->y<<")\n";
 
         //vaild sub Board to put on
         int vaildx = x%3;
         int vaildy = y%3;
+        
         bool confined = true;
         
         if(!MainBoard.sub(vaildx, vaildy).full()){
@@ -108,27 +121,24 @@ public:
         }
         Mode decision = Mode::Random;
         
-        if(mode==Mode::Standard){
+        if(mode == Mode::Standard){
             //Standard AI mode
             int points[9][9]={0};
-            int maxpnt=0;
+            int maxpnt = 0;
             if(confined){
                 //in sub Board[vaildx][vaildy]
-                //3x3 options
-                if(!MainBoard.isOccupied(vaildx, vaildy)){
+                //check 3x3 position
+                if(MainBoard.state(vaildx, vaildy)==TA::BoardInterface::Tag::None){
                     //subBoard not occupied yet
                     for(int i=0; i<3; i++){
                         for(int j=0; j<3; j++){
-                            if(tgtBoard.isPlaceable(i, j)){
+                            points[i][j]=0;
+                            if(tgtBoard.state(i, j)==TA::BoardInterface::Tag::None){
                                 //empty space
-                                points[i][j]+=enemyAround(tgtBoard, i, j, this->mytag, 1);
-                                points[i][j]+=allyAround(tgtBoard, i, j, this->mytag, 1);
-
-                                if(vaildx==i&&vaildy==j)points[i][j]-=3;
-                                
-                                
+                                points[i][j]+=enemyAround(tgtBoard, i, j, this->mytag);
+                                points[i][j]+=allyAround(tgtBoard, i, j, this->mytag);
                                 //update (retx, rety) if better
-                                if(points[i][j]>maxpnt || ((points[i][j]!=0&&points[i][j]==maxpnt)&&rand()%2)){
+                                if(points[i][j]>maxpnt){
                                     maxpnt = points[i][j];
                                     retx = vaildx*3+i;
                                     rety = vaildy*3+j;
@@ -139,45 +149,21 @@ public:
                     }
                 }
                 else{
-                    //subBoard occupied
-                    for(int i=0; i<3; i++){
-                        for(int j=0; j<3; j++){
-                            if(tgtBoard.isPlaceable(i, j)){
-                                if((!MainBoard.isOccupied(i,j)) && (!MainBoard.sub(i,j).full())){
-                                    points[i][j]+=3;
-                                }
-                                
-                                if(mytag==TA::BoardInterface::Tag::O){
-                                    points[i][j]+=enemyAround(MainBoard, i/3, j/3, TA::BoardInterface::Tag::X, 10);
-                                }
-                                else if(mytag==TA::BoardInterface::Tag::X){
-                                    points[i][j]+=enemyAround(MainBoard, i/3, j/3, TA::BoardInterface::Tag::O, 10);
-                                }
-
-                                if(points[i][j]>maxpnt || ((points[i][j]!=0&&points[i][j]==maxpnt)&&rand()%2)){
-                                    maxpnt = points[i][j];
-                                    retx = vaildx*3+i;
-                                    rety = vaildy*3+j;
-                                    decision = Mode::Standard;
-                                }
-                            }
-                        }
-                    }
+                    //occupied or tied
+                    
                 }
                 
             }
             else if(!confined){
-                //subBoard full, place anywhere on Ultraboard
-                //9x9 options
+                //board full, place anywhere
                 for(int i=0; i<9; i++){
                     for(int j=0; j<9; j++){
                         if(MainBoard.get(i, j)==TA::BoardInterface::Tag::None){
                             //if placeable
                             if(MainBoard.state(i/3, j/3)==TA::BoardInterface::Tag::None){
                                 //if subBoard not occupied yet
-                                points[i][j]+=enemyAround(MainBoard.sub(i/3, j/3), i%3, j%3, this->mytag, 1);
-                                points[i][j]+=allyAround(MainBoard.sub(i/3, j/3), i%3, j%3, this->mytag, 1);
-                            
+                                points[i][j]+=enemyAround(MainBoard.sub(i/3, j/3), i%3, j%3, this->mytag);
+                                points[i][j]+=allyAround(MainBoard.sub(i/3, j/3), i%3, j%3, this->mytag);
                             }
 
                             //update if better
@@ -222,12 +208,115 @@ public:
                         else std::cout<<" "<<points[i][j];
                     }
                     std::cout<<"\n";
-                    if(confined&&i==2)break;
+                    if(confined && i == 2)break;
                 }
             }
         }
-        else if(mode==Mode::Offense){
-            //Ultimate Winning Strategy Here
+        else if(mode == Mode::Offense){ //Ultimate Winning Strategy Here
+            int validx = vaildx;
+            int validy = vaildy;
+            if (state == -1) { 
+                state = 0;
+                
+                retx = 4;
+                rety = 4; 
+                waitLine.push_back(std::make_pair(1, 1));
+            }
+            else if (state == 0) {
+                TA::Board& offenseBoard = MainBoard.sub(waitLine[n].first, waitLine[n].second);
+                if (offenseBoard.full()) {  // if we can not make it to (c, d)
+                    state = 2;
+
+                    waitLine.erase(waitLine.begin());   // pop_front
+                    waitLine.push_back(std::make_pair(validx, validy));
+                    retx = validx * 3 + waitLine[n].first;
+                    rety = validy * 3 + waitLine[n].second;
+                    n = 0;
+                    std::cout << "into state2\n";
+                }
+                else {
+                    retx = validx * 3 + 1;
+                    rety = validy * 3 + 1;
+                } 
+            }
+            else if(state == 2){
+                if (validx == 1 && validy == 1){
+                    validx = abs(2 - waitLine[n].first);
+                    validy = abs(2 - waitLine[n].second);
+                    waitLine.push_back(std::make_pair(validx,validy));
+                     while (MainBoard.get((validx * 3 + waitLine[n].first), (validy * 3 + waitLine[n].second))
+                            != TA::BoardInterface::Tag::None){
+                            n++;
+                            std::cout << "while loop\n";
+                        }
+                    std::cout << "In21\n";
+                } 
+                else {
+                     TA::Board& offenseBoard = MainBoard.sub(waitLine[n].first, waitLine[n].second);
+                     if(offenseBoard.full()){
+                        waitLine.erase(waitLine.begin());
+                        std::cout << "In22\n";
+                     }
+                     else{
+                        while (MainBoard.get((validx * 3 + waitLine[n].first), (validy * 3 + waitLine[n].second))
+                            != TA::BoardInterface::Tag::None){
+                            n++;
+                            std::cout << "while loop\n";
+                        }
+                        std::cout << "In23\n";
+                    }
+                }
+                //cout << vai
+                retx = validx * 3 + waitLine[n].first;
+                rety = validy * 3 + waitLine[n].second;
+                n = 0;
+            }  
+
+            /*//if vector is empty, means that it's the first step for the game (and we are the first player)
+            if(waitLine.empty()) {
+                if(MainBoard.get(4,4) == TA::BoardInterface::Tag::None) {
+                    waitLine.push_back(make_pair(1,1));
+                    retx = 4;
+                    rety = 4;
+                } else {
+                    cout<<"Error! Vector is now empty, don't know where to place.\n";
+                }
+            }else{
+                //when the center subboard is not yet full (the last step need not to be (1,1))
+                if(MainBoard.get((validx * 3) + 1, (validy * 3) + 1) == TA::BoardInterface::Tag::None) {
+                    //check if the center subBoard is full. 
+                    //if full, place on the corresponding spot of the current avaliable board
+                    bool centerSubboardFULL = true;
+                    for (int a = 3; a < 6; a++{
+                        for(int b = 3; b < 6 ; b++){
+                            if(MainBoard.get(a, b) == TA::BoardInterface::Tag::None){
+                                centerSubboardFULL = false;
+                                break;
+                            }
+                        }
+                    }
+                    //not yet full? place center;
+                    if (!centerSubboardFULL){
+                        retx = (validx * 3) + 1;
+                        rety = (validy * 3) + 1;
+                    }
+                    //full?
+                    else {
+                        waitLine.erase(waitLine.begin());
+                        retx = (validx * 3 + validx);
+                        rety = (validy * 3 + validy);
+                        waitLine.push_back(make_pair(validx, validy));
+                    }
+                }
+                //when the center subBoard is already full, it's 
+                else{
+
+                }
+            }*/
+
+            //if the center of the tgtboard is not full => place it in the center
+
+
         }
         
         if(dbg)std::cout<<"choose:("<<retx<<","<<rety<<")\n";
@@ -239,7 +328,7 @@ public:
         if(x>=0 && x<3 && y>=0 && y<3) return true;
         else return false;
     }
-    bool isEnemy(TA::BoardInterface& tgtBoard, int x, int y, TA::BoardInterface::Tag allytag){
+    bool isEnemy(TA::Board tgtBoard, int x, int y, TA::BoardInterface::Tag allytag){
         TA::BoardInterface::Tag enemytag = TA::BoardInterface::Tag::None;
         if(allytag == TA::BoardInterface::Tag::O) enemytag = TA::BoardInterface::Tag::X;
         else if(allytag == TA::BoardInterface::Tag::X) enemytag = TA::BoardInterface::Tag::O;
@@ -251,7 +340,7 @@ public:
         }
         else return false;
     }
-    bool isNone(TA::BoardInterface& tgtBoard, int x, int y){
+    bool isNone(TA::Board tgtBoard, int x, int y){
         if(inRange(x,y)){
             if(tgtBoard.state(x,y)==TA::BoardInterface::Tag::None){
                 return true;
@@ -260,23 +349,11 @@ public:
         }
         else return false;
     }
-
-    bool isAlly(TA::Board tgtBoard, int x, int y, TA::BoardInterface::Tag allytag){
-        TA::BoardInterface::Tag enemytag;
-        if(allytag == TA::BoardInterface::Tag::O) enemytag = TA::BoardInterface::Tag::X;
-        else if(allytag == TA::BoardInterface::Tag::X) enemytag = TA::BoardInterface::Tag::O;
-        if(inRange(x,y)){
-            if(tgtBoard.state(x,y)==allytag){
-                return true;
-            }
-            else return false;
-        }
-        else return false;
-    }
     
-    int enemyAround(TA::BoardInterface& tgtBoard, int x, int y, TA::BoardInterface::Tag t, int weight){
-        int enemypnt=1*weight;
-        int blockpnt=9*weight;
+    int enemyAround(TA::Board tgtBoard, int x, int y, TA::BoardInterface::Tag t){
+        //X None X is not considered!
+        int enemypnt=1;
+        int blockpnt=9;
         int totalpnt=0;
         if(x+y==1 || x+y==3){
             //at cross, check ignore tilt
@@ -433,126 +510,14 @@ public:
         }
         return totalpnt;
     }
-    int allyAround(TA::Board tgtBoard, int x, int y, TA::BoardInterface::Tag t, int weight){
-        //int ally=0;
-        int totalpnt= 0;
-        int allypnt = 2 *weight;
-        int linkpnt = 12 *weight;
-        int canlink = 2 *weight;
+    int allyAround(TA::Board tgtBoard, int x, int y, TA::BoardInterface::Tag t){
+        int ally=0;
 
-        if((x == 0 && y == 0)||(x == 0 && y == 2)||(x == 2 && y == 0)||(x == 2 && y == 2)){
-            if(isAlly(tgtBoard,x,y+1,t)){
-                totalpnt += allypnt;
-                if(isAlly(tgtBoard,x,y+2,t)) totalpnt += linkpnt;
-                else if(isNone(tgtBoard,x,y+2)) totalpnt += canlink;
-            } 
-            if(isAlly(tgtBoard,x,y-1,t)){
-                totalpnt += allypnt;
-                if(isAlly(tgtBoard,x,y-2,t)) totalpnt += linkpnt;
-                else if(isNone(tgtBoard,x,y-2)) totalpnt += canlink;
-            } 
-            if(isAlly(tgtBoard,x+1,y,t)){
-                totalpnt += allypnt;
-                if(isAlly(tgtBoard,x+2,y,t)) totalpnt += linkpnt;
-                else if(isNone(tgtBoard,x+2,y)) totalpnt += canlink;
-            } 
-            if(isAlly(tgtBoard,x-1,y,t)){
-                totalpnt += allypnt;
-                if(isAlly(tgtBoard,x-2,y,t)) totalpnt += linkpnt;
-                else if(isNone(tgtBoard,x-2,y)) totalpnt += canlink;
-            } 
-            if(isAlly(tgtBoard,x+1,y+1,t)){
-                totalpnt += allypnt;
-                if(isAlly(tgtBoard,x+2,y+2,t)) totalpnt += linkpnt;
-                else if(isNone(tgtBoard,x+2,y+2)) totalpnt += canlink;
-            } 
-            if(isAlly(tgtBoard,x-1,y-1,t)){
-                totalpnt += allypnt;
-                if(isAlly(tgtBoard,x-2,y-2,t)) totalpnt += linkpnt;
-                else if(isNone(tgtBoard,x-2,y-2)) totalpnt += canlink;
-            } 
-            if(isAlly(tgtBoard,x-1,y+1,t)){
-                totalpnt += allypnt;
-                if(isAlly(tgtBoard,x-2,y+2,t)) totalpnt += linkpnt;
-                else if(isNone(tgtBoard,x-2,y+2)) totalpnt += canlink;
-            } 
-            if(isAlly(tgtBoard,x+1,y-1,t)){
-                totalpnt += allypnt;
-                if(isAlly(tgtBoard,x+2,y-2,t)) totalpnt += linkpnt;
-                else if(isNone(tgtBoard,x+2,y-2)) totalpnt += canlink;
-            } 
-            if(isNone(tgtBoard,x,y+1) && isAlly(tgtBoard,x,y+2,t)) totalpnt += canlink;
-            if(isNone(tgtBoard,x,y-1) && isAlly(tgtBoard,x,y-2,t)) totalpnt += canlink;
-            if(isNone(tgtBoard,x+1,y) && isAlly(tgtBoard,x+2,y,t)) totalpnt += canlink;
-            if(isNone(tgtBoard,x-1,y) && isAlly(tgtBoard,x-2,y,t)) totalpnt += canlink;
-            if(isNone(tgtBoard,x+1,y+1) && isAlly(tgtBoard,x+2,y+2,t)) totalpnt += canlink;
-            if(isNone(tgtBoard,x-1,y-1) && isAlly(tgtBoard,x-2,y-2,t)) totalpnt += canlink;
-            if(isNone(tgtBoard,x-1,y+1) && isAlly(tgtBoard,x-2,y+2,t)) totalpnt += canlink;
-            if(isNone(tgtBoard,x+1,y-1) && isAlly(tgtBoard,x+2,y-2,t)) totalpnt += canlink;
-        }
-
-
-        if((x == 0 && y == 1)||(x == 1 && y == 0)||(x == 1 && y == 2)||(x == 2 && y == 1)){
-            if(isAlly(tgtBoard,x,y+1,t) || isAlly(tgtBoard,x, y-1,t)){
-                if(isAlly(tgtBoard,x,y-1,t) && isAlly(tgtBoard,x,y+1,t)) totalpnt += (2*allypnt+ linkpnt);
-                else if(isNone(tgtBoard,x,y+1) || isNone(tgtBoard,x,y-1)) totalpnt += (allypnt+canlink);
-                else if(isAlly(tgtBoard,x,y+2,t) || isAlly(tgtBoard,x,y-2,t)) totalpnt += (allypnt+linkpnt);
-                else if(isNone(tgtBoard,x,y+2) || isNone(tgtBoard,x,y-2)) totalpnt += (allypnt+canlink);
-                else totalpnt += allypnt;
-            }
-
-            if(isAlly(tgtBoard,x-1,y,t) || isAlly(tgtBoard,x+1, y,t)){
-                if(isAlly(tgtBoard,x-1,y,t) && isAlly(tgtBoard,x+1,y,t)) totalpnt += (2*allypnt+ linkpnt);
-                else if(isNone(tgtBoard,x-1,y) || isNone(tgtBoard,x+1,y)) totalpnt += (allypnt+canlink);
-                else if(isAlly(tgtBoard,x-2,y,t) || isAlly(tgtBoard,x+2,y,t)) totalpnt += (allypnt+linkpnt);
-                else if(isNone(tgtBoard,x-2,y) || isNone(tgtBoard,x+2,y)) totalpnt += (allypnt+canlink);
-                else totalpnt += allypnt;
-            }
-
-            if(isNone(tgtBoard,x-1,y) || isNone(tgtBoard,x+1,y)){
-                if(isAlly(tgtBoard,x-2,y,t) || isAlly(tgtBoard,x+2,y,t)) totalpnt += canlink;
-            }  
-            if(isNone(tgtBoard,x,y-1) || isNone(tgtBoard,x,y+1)){
-                if(isAlly(tgtBoard,x,y-2,t) || isAlly(tgtBoard,x,y+2,t)) totalpnt += canlink;
-            } 
-        }
-
-        if(x == 1 && y == 1){
-            if(isAlly(tgtBoard,x,y+1,t) || isAlly(tgtBoard,x, y-1,t)){
-                if(isAlly(tgtBoard,x,y-1,t) && isAlly(tgtBoard,x,y+1,t)) totalpnt += (2*allypnt+ linkpnt);
-                else if(isNone(tgtBoard,x,y+1) || isNone(tgtBoard,x,y-1)) totalpnt += (allypnt+canlink);
-                //else if(isAlly(tgtBoard,x,y+2,t) || isAlly(tgtBoard,x,y-2,t)) totalpnt += (allypnt+linkpnt);
-                //else if(isNone(tgtBoard,x,y+2) || isNone(tgtBoard,x,y-2)) totalpnt += (allypnt+canlink);
-                else totalpnt += allypnt;
-            }
-
-            if(isAlly(tgtBoard,x-1,y,t) || isAlly(tgtBoard,x+1, y,t)){
-                if(isAlly(tgtBoard,x-1,y,t) && isAlly(tgtBoard,x+1,y,t)) totalpnt += (2*allypnt+ linkpnt);
-                else if(isNone(tgtBoard,x-1,y) || isNone(tgtBoard,x+1,y)) totalpnt += (allypnt+canlink);
-                //else if(isAlly(tgtBoard,x-2,y,t) || isAlly(tgtBoard,x+2,y,t)) totalpnt += (allypnt+linkpnt);
-                //else if(isNone(tgtBoard,x-2,y) || isNone(tgtBoard,x+2,y)) totalpnt += (allypnt+canlink);
-                else totalpnt += allypnt;
-            } 
-            if(isAlly(tgtBoard,x+1,y+1,t) || isAlly(tgtBoard,x-1, y-1,t)){
-                if(isAlly(tgtBoard,x-1,y-1,t) && isAlly(tgtBoard,x+1,y+1,t)) totalpnt += (2*allypnt+ linkpnt);
-                else if(isNone(tgtBoard,x+1,y+1) || isNone(tgtBoard,x-1,y-1)) totalpnt += (allypnt+canlink);
-                //else if(isAlly(tgtBoard,x,y+2,t) || isAlly(tgtBoard,x,y-2,t)) totalpnt += (allypnt+linkpnt);
-                //else if(isNone(tgtBoard,x,y+2) || isNone(tgtBoard,x,y-2)) totalpnt += (allypnt+canlink);
-                else totalpnt += allypnt;
-            }
-
-            if(isAlly(tgtBoard,x-1,y+1,t) || isAlly(tgtBoard,x+1, y-1,t)){
-                if(isAlly(tgtBoard,x-1,y+1,t) && isAlly(tgtBoard,x+1,y-1,t)) totalpnt += (2*allypnt+ linkpnt);
-                else if(isNone(tgtBoard,x-1,y+1) || isNone(tgtBoard,x+1,y-1)) totalpnt += (allypnt+canlink);
-                //else if(isAlly(tgtBoard,x-2,y,t) || isAlly(tgtBoard,x+2,y,t)) totalpnt += (allypnt+linkpnt);
-                //else if(isNone(tgtBoard,x-2,y) || isNone(tgtBoard,x+2,y)) totalpnt += (allypnt+canlink);
-                else totalpnt += allypnt;
-            } 
-        }
-        return totalpnt;
+        return ally;
     }
     /*bool canBlock(TA::Board tgtBoard, int x, int y){
         bool ans = false;
+
         return ans;
     }*/
     bool canConqure(TA::Board tgtBoard, int x, int y){
