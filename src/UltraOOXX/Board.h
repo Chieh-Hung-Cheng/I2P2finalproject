@@ -1,5 +1,3 @@
-
-//testing!
 #pragma once
 #include<iostream>
 namespace TA {
@@ -11,6 +9,7 @@ namespace TA {
             X,
             Tie
         };
+        
         friend std::ostream& operator<<(std::ostream& os, Tag& tag){
             switch(tag){
                 case Tag::None:
@@ -34,7 +33,7 @@ namespace TA {
         Tag getWinTag() const {return wintag;}
         void setWinTag(Tag t) {wintag = t;}
     private:
-        Tag wintag = Tag::None;
+        Tag wintag;
     };
 
 
@@ -60,10 +59,10 @@ namespace TA {
                         return false;
             return true;
         }
-
+/*
         bool isPlaceable(int ix, int iy){
             return b[ix][iy] == Tag::None;
-        }
+        }*/
 
         //tag of Board[ix][iy]
         Tag state(int x, int y) const override {
@@ -74,12 +73,12 @@ namespace TA {
             return b[x][y];
         }
         //TODO
-        void set(int x, int y, Tag t){
+        /*void set(int x, int y, Tag t){
             b[x][y] = t;
-        }
+        }*/
         //end
         //Ido
-        void determineWin(int x, int y){
+       /* void determineWin(int x, int y){
             //std::cout<<"determineWin\n";
             if(getWinTag() != Tag::None) return;
             Tag tmp = state(x,y);
@@ -97,15 +96,15 @@ namespace TA {
                 if(full()) setWinTag(Tag::Tie);
                 else setWinTag(Tag::None);
             }
-        }
+        }*/
         //I_end
-        Tag getWinTag() const {return wintag;}
-        void setWinTag(Tag t) {wintag = t;}
+        //Tag getWinTag() const {return wintag;}
+        //void setWinTag(Tag t) {wintag = t;}
         
         //060505
 
     private:
         Tag b[3][3];
-        Tag wintag;
+        //Tag wintag;
     };
 } // Namespace TA
