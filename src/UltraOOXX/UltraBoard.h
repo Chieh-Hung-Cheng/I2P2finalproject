@@ -14,7 +14,7 @@ namespace TA {
                 for (int j=0;j<3;++j)
                     b[i][j].reset();
             //060504
-            this->wintag = Tag::None;
+            //this->wintag = Tag::None;
         }
 
         //get UltraBoard[gx][gy]
@@ -31,7 +31,7 @@ namespace TA {
             return b[x][y].getWinTag();
         };
         //TODO
-        bool full() const {
+        /*bool full() const {
             for (int i=0;i<3;++i)
                 for (int j=0;j<3;++j)
                     if (!b[i][j].full())
@@ -50,10 +50,10 @@ namespace TA {
 
         void set(int x, int y, Tag t){
             b[x/3][y/3].set(x%3, y%3, t);
-        }
+        }*/
         //end
         //Ido
-        void determineWin(int x, int y){
+        /*void determineWin(int x, int y){
             //std::cout<<"determine_U_Win\n";
             if(getWinTag() != Tag::None) return;
             Tag tmp = state(x,y);
@@ -71,16 +71,16 @@ namespace TA {
                 if(full()) setWinTag(Tag::Tie);
                 else setWinTag(Tag::None);
             }
-        }
+        }*/
         //I_end
 
         //060504
-        Tag getWinTag() const {return wintag;}
-        void setWinTag(Tag t) {wintag = t;}
+        //Tag getWinTag() const {return wintag;}
+        //void setWinTag(Tag t) {wintag = t;}
 
     private:
         Board b[3][3];
         //060504
-        Tag wintag;
+        //Tag wintag;
     };
 } // Namespace TA

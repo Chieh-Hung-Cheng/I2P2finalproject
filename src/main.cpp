@@ -7,8 +7,8 @@
 #include <UltraOOXX/Game.h>
 #include <UltraOOXX/Wrapper/Content.h>
 
-bool randseed = false;
-bool stopnwait = true;
+//bool randseed = true;
+//bool stopnwait = false;
 int times=1;
 
 bool load(const char *libpath, Content &table)
@@ -39,7 +39,7 @@ bool load(const char *libpath, Content &table)
 
 int main()
 {
-    if(randseed)srand(time(nullptr));
+    //if(randseed)srand(time(nullptr));
 
     for(int i=0; i<times; i++){
         Content P1, P2;   
@@ -62,7 +62,7 @@ int main()
         dlclose(P1.handle);
         dlclose(P2.handle);
 
-        system("read -p 'Press Enter to continue...' var");
+        //system("read -p 'Press Enter to continue...' var");
     }
     
     return 0;

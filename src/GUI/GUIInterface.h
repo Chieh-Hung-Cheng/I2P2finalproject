@@ -124,12 +124,15 @@ R"( _   _ _ _             _____  _______   ____   __
                     std::putchar(toPrintChar(b.get(i, j)));
                     if (j == 2 || j == 5) std::putchar('|');
                 }
-                ///!!!
+                //UltarBoard show
                 if(i>=0 && i<3){
                     std::printf("%s", buf.c_str());
                     for (int j=0;j<3;++j)
                     {
+                        //std::cout<<i<<j;
                         std::putchar(toPrintChar(b.state(i, j)));
+                        //TA::BoardInterface::Tag tg = b.state(i,j);
+                        //std::cout << tg<<"!";
                         if (j == 0 || j == 1) std::putchar('|');
                     }
                 }

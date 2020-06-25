@@ -11,7 +11,7 @@
 #include <future>
 #include <type_traits>
 
-extern bool stopnwait;
+bool stopnwait;
 
 namespace TA
 {
@@ -70,7 +70,7 @@ namespace TA
                 }
                 updateGuiGame();
 
-                if(stopnwait)system("read -p 'Press Enter to continue...' var");
+                if(stopnwait) system("read -p 'Press Enter to continue...' var");
                 
                 //testing
                 printf( "\033[H\033[J" );
@@ -96,11 +96,14 @@ namespace TA
             //std::cout<<pos.first<<"!!!"<<pos.second<<"!!!\n";
             
             enemy->callbackReportEnemy(pos.first,pos.second);
-            MainBoard.set(pos.first, pos.second, tag);
+           // MainBoard.set(pos.first, pos.second, tag);
+            MainBoard.get(pos.first, pos.second) = tag;
+            determineBoardWin(pos.first, pos.second, tag);
+            determineUltraWin(pos.first, pos.second);
 
             //Ido
-            MainBoard.sub(pos.first/3, pos.second/3).determineWin(pos.first%3, pos.second%3);
-            MainBoard.determineWin(pos.first/3, pos.second/3);
+            //MainBoard.sub(pos.first/3, pos.second/3).determineWin(pos.first%3, pos.second%3);
+            //MainBoard.determineWin(pos.first/3, pos.second/3);
         //I_end
             //end
             return true;
@@ -124,7 +127,7 @@ namespace TA
                 updateGuiGame();
                 return true;
             }
-            else if(MainBoard.full()){
+            else if(MainBoardfull(MainBoard)){
                 std::cout<<"FULL!GAMEOVER!!!\n";
                 updateGuiGame();
                 return true;
@@ -132,6 +135,14 @@ namespace TA
             else return false;
             //end
             /*return true; // Gameover!*/
+        }
+
+        bool MainBoardfull() {
+            for (int i=0;i<3;++i)
+                for (int j=0;j<3;++j)
+                    if (!MainBoard.sub(i ,j).full())
+                        return false;
+            return true;
         }
 
         bool prepareState()
@@ -194,6 +205,82 @@ namespace TA
         bool checkAI(AIInterface *ptr) 
         {
             return ptr->abi() == AI_ABI_VER;
+        }
+
+        //determine win
+        void determineUltraWin(int x, int y){
+            //std::cout<<"determineWin\n";
+            x /= 3;
+            y /= 3;
+            if(MainBoard.getWinTag() != TA::BoardInterface::Tag::None) return;
+            TA::BoardInterface::Tag tmp = MainBoard.state(x,y);
+            //std::cout<<tmp<<"!\n";
+            int flag = 0;
+            if(y == 0 && tmp == MainBoard.state(x, y+1) && tmp == MainBoard.state(x, y+2)) flag = 1;
+            if(y == 1 && tmp == MainBoard.state(x, y-1) && tmp == MainBoard.state(x, y+1)) flag = 1;
+            if(y == 2 && tmp == MainBoard.state(x, y-1) && tmp == MainBoard.state(x, y-2)) flag = 1;
+            if(x == 0 && tmp == MainBoard.state(x+1, y) && tmp == MainBoard.state(x+2, y)) flag = 1;
+            if(x == 1 && tmp == MainBoard.state(x-1, y) && tmp == MainBoard.state(x+1, y)) flag = 1;
+            if(x == 2 && tmp == MainBoard.state(x-1, y) && tmp == MainBoard.state(x-2, y)) flag = 1;
+            if(((x == 0 && y == 0) && tmp == MainBoard.state(1, 1) && tmp == MainBoard.state(2, 2)) || 
+            ((x == 1 && y == 1) && tmp == MainBoard.state(0, 0) && tmp == MainBoard.state(2, 2)) ||
+            ((x == 2 && y == 2) && tmp == MainBoard.state(0, 0) && tmp == MainBoard.state(1, 1)) ||
+            ((x == 0 && y == 2) && tmp == MainBoard.state(1, 1) && tmp == MainBoard.state(2, 0)) ||
+            ((x == 1 && y == 1) && tmp == MainBoard.state(0, 2) && tmp == MainBoard.state(2, 0)) ||
+            ((x == 2 && y == 0) && tmp == MainBoard.state(0, 2) && tmp == MainBoard.state(1, 1))) flag = 1;
+            if(flag &&tmp!=TA::BoardInterface::Tag::Tie){
+                MainBoard.setWinTag(tmp);
+                 //std::cout<<"ultra tag change "<<t<<"\n";
+            }
+            else{
+                if(MainBoardfull(MainBoard)) MainBoard.setWinTag(TA::BoardInterface::Tag::Tie);
+                else MainBoard.setWinTag(TA::BoardInterface::Tag::None);
+                 //std::cout<<"ultra tag no change "<<t<<"\n";
+            }
+            //TA::BoardInterface::Tag temp = MainBoard.getWinTag();
+            //std::cout<<temp<<"\n";
+        }
+
+        void determineBoardWin(int x, int y, TA::BoardInterface::Tag t){
+            TA::Board& tgtboard = MainBoard.sub(x/3, y/3);
+            if(tgtboard.getWinTag() != TA::BoardInterface::Tag::None) return;
+            //std::cout<<"determineWin"<<x<<y<<"\n";
+
+            x %= 3;
+            y %= 3;
+            TA::BoardInterface::Tag tmp = t;
+            //std::cout<<tmp<<"\n";
+            int flag = 0;
+            if(y == 0 && tmp == tgtboard.state(x, y+1) && tmp == tgtboard.state(x, y+2)) flag = 1;
+            if(y == 1 && tmp == tgtboard.state(x, y-1) && tmp == tgtboard.state(x, y+1)) flag = 1;
+            if(y == 2 && tmp == tgtboard.state(x, y-1) && tmp == tgtboard.state(x, y-2)) flag = 1;
+            if(x == 0 && tmp == tgtboard.state(x+1, y) && tmp == tgtboard.state(x+2, y)) flag = 1;
+            if(x == 1 && tmp == tgtboard.state(x-1, y) && tmp == tgtboard.state(x+1, y)) flag = 1;
+            if(x == 2 && tmp == tgtboard.state(x-1, y) && tmp == tgtboard.state(x-2, y)) flag = 1;
+            if(((x == 0 && y == 0) && tmp == tgtboard.state(1, 1) && tmp == tgtboard.state(2, 2)) || 
+            ((x == 1 && y == 1) && tmp == tgtboard.state(0, 0) && tmp == tgtboard.state(2, 2)) ||
+            ((x == 2 && y == 2) && tmp == tgtboard.state(0, 0) && tmp == tgtboard.state(1, 1)) ||
+            ((x == 0 && y == 2) && tmp == tgtboard.state(1, 1) && tmp == tgtboard.state(2, 0)) ||
+            ((x == 1 && y == 1) && tmp == tgtboard.state(0, 2) && tmp == tgtboard.state(2, 0)) ||
+            ((x == 2 && y == 0) && tmp == tgtboard.state(0, 2) && tmp == tgtboard.state(1, 1))) flag = 1;
+            if(flag &&tmp!=TA::BoardInterface::Tag::Tie){
+                tgtboard.setWinTag(tmp);
+                //std::cout<<"tag change "<<t<<"\n";
+            }
+            else{
+                // std::cout<<"tag no change "<<t<<"\n";
+                if(tgtboard.full()) tgtboard.setWinTag(TA::BoardInterface::Tag::Tie);
+                else tgtboard.setWinTag(TA::BoardInterface::Tag::None);
+            }
+            //TA::BoardInterface::Tag temp= tgtboard.getWinTag();
+            //std::cout<<temp<<"!\n";
+        }
+        bool MainBoardfull(TA::UltraBoard board) const {
+            for (int i=0;i<3;++i)
+                for (int j=0;j<3;++j)
+                    if (!board.sub(i, j).full())
+                        return false;
+            return true;
         }
 
         int m_size;
